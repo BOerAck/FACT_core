@@ -1,0 +1,65 @@
+#installtion needed pip intall ipdata
+from ipdata import ipdata
+from pprint import pprint
+import json
+import socket
+
+#API key for IPdata
+ipd=ipdata.IPData('94e7d24a7610566ca951ae281d974d19d7be21764420af641f2f6d0a')
+
+
+#Input
+mainInput = ['5.2.76.221', 'https://www.google.com', 'facebook.com', '2.58.56.14']
+mainIps = {}
+
+#obtaining domainName from uri
+def domain_from_uri(uri):
+	sub_strs = uri.split("://")
+	domain=sub_strs[1].split("/")[0]
+	return domain	
+
+#obtaining ipAddress from domainName
+def ip_from_domain(domain):
+	sock = socket.gethostbyname(domain)
+	return sock
+
+
+#logic to differntiate ip,doman & uri
+def toIps(inl):
+	for inname in inl:
+		if (inname[0:4] == 'http'):
+			mainIps[inname] = ip_from_domain(domain_from_uri(inname))
+		elif (inname[0].isdigit()):
+			mainIps[inname] = inname
+		else:
+			mainIps[inname] = ip_from_domain(inname)
+
+#obtaing ip details from IPdata 
+#fields choosen are country_name', 'continent_name', 'latitude', 'longitude', 'company', 'threat' from IPdata
+def location(ips):
+	locators = ['country_name', 'continent_name', 'latitude', 'longitude', 'company', 'threat' ]
+	dict = {}
+	try:
+		for name, ip in ips.items():
+			response = ipd.lookup(ip)
+			dict[name] = {}
+			for locator in locators:
+				dict[name][locator] = response[locator]
+	except e:
+		print('Error: ', e)
+	finally:
+		return(dict)
+
+
+toIps(mainInput)
+finalOutput = location(mainIps)
+for i, j in finalOutput.items():
+	print(i ,j ,"\n")
+
+
+
+
+
+
+
+

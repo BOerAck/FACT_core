@@ -6,18 +6,13 @@ import time, pprint, datetime
 from ipwhois.net import Net
 from ipwhois.asn import IPASN
 
-from ipdata import ipdata
-
-
-
-
 from analysis.PluginBase import AnalysisBasePlugin
 from helperFunctions.compare_sets import substring_is_in_list
 from common_analysis_ip_and_uri_finder import CommonAnalysisIPAndURIFinder
 
 
 class AnalysisPlugin(AnalysisBasePlugin):
-	NAME = 'ipdata_Analysis'
+	NAME = 'Virustotal_Analysis'
 	DEPENDENCIES = ['ip_and_uri_finder']
 	DESCRIPTION = (
 	'Returns the results of DNS and WHOIS queries for identified IPS and URIs'
@@ -28,8 +23,8 @@ class AnalysisPlugin(AnalysisBasePlugin):
 		self.domains_from_uris = 0
 		self.ips_from_domains = 0
 		self.domains_from_ips = 0
-		key = '94e7d24a7610566ca951ae281d974d19d7be21764420af641f2f6d0a'
-		self.ipd=ipdata.IPData(key)
+		self.virustotal_ip = 0
+
 		self.ip_and_uri_finder = CommonAnalysisIPAndURIFinder()
 		super().__init__(plugin_administrator, config=config, recursive=recursive, timeout=timeout, plugin_path=__file__)
 
@@ -48,15 +43,17 @@ class AnalysisPlugin(AnalysisBasePlugin):
 					data = data[0]
 				if key == 'uris':
 					data = self.get_domains_from_uri(data)
-					final_data['ipdataDomain_to_IP'] = {}
+					final_data['VirusTotalDomain_to_IP'] = {}
 					domains_to_ips = self.get_ips_from_domain(data)
 					for ip in domains_to_ips:
-						final_data['ipdataDomain_to_IP'][f'{data} to_ip: {ip}'] = self.ipdata_location(ip)
+						final_data['VirusTotalDomain_to_IP'][f'{data} to_ip: {ip}'] = self.virustotalIp([ip])
 
 				elif key == 'ips_v4':
-					final_data['ipdataIP'] = {}
-					final_data['ipdataIP'][data] = self.ipdata_location(data)
-					
+					final_data['VirusTotalIP'] = {}
+					final_data['VirusTotalIP'][data] = self.virustotalIp([data])
+					#ips_to_domains = self.get_domains_from_ip(data)
+					#for domain in ips_to_domains:
+						#final_data['AlienVaultIP'][f'{data} to_domain: {domain}'] = self.alienDomain([domain])
 		final_data['summary'] = self.get_summary()
 		print(f'##################\n\n{final_data}\n\n################')
 		file_object.processed_analysis[self.NAME] = final_data #self._get_augmented_result(result)
@@ -94,18 +91,34 @@ class AnalysisPlugin(AnalysisBasePlugin):
 		except Exception as e:
 			return [f'No DNS records found {ip}']
 			
-	def ipdata_location(self, ip):
-		#locators = ['country_name', 'continent_name', 'latitude', 'longitude', 'company', 'threat','asn']
-		#return_dict = {}
+	# IP Part using VirusTotal
+	def virustotalIp(self,IP):
+		return_dict = {}
 		try:
-			response = self.ipd.lookup(ip)
-			#for locator in locators:
-				#return_dict[locator] = response[locator]
-			return pprint.pformat(response)
-		except Exception as e:
-			return {'ERROR': e}
+			for ip in IP:
+				self.virustotal_ip += 1
+				header={ "X-Apikey": "898e54e360cdf32b5714e2d14d3881d6c0274f21a791d972244a4ebe86b2e711"}
+				url="https://www.virustotal.com/api/v3/ip_addresses/" + ip
+				response_ip_rep=requests.get(url, headers=header)
 
-		#return pprint.pformat(return_dict)
+				if(response_ip_rep.status_code==200):
+					ip_rep=response_ip_rep.json()
+					#print(ip_rep)
+
+					return_dict = {'harmless':str(ip_rep['data']['attributes']['last_analysis_stats']['harmless']),'malicious':str(ip_rep['data']['attributes']['last_analysis_stats']['malicious']),'suspicious':(str(ip_rep['data']['attributes']['last_analysis_stats']['suspicious'])),'undetected':str(ip_rep['data']['attributes']['last_analysis_stats']['undetected'])}
+					"""
+					print("\nIP Reputation from various AVs:\n") 
+					print("Harmless: " + str(ip_rep['data']['attributes']['last_analysis_stats']['harmless']))
+					print("Malicious: " + str(ip_rep['data']['attributes']['last_analysis_stats']['malicious']))
+					print("Suspicious: " + str(ip_rep['data']['attributes']['last_analysis_stats']['suspicious']))
+					print("Undetected: " + str(ip_rep['data']['attributes']['last_analysis_stats']['undetected'])) """
+					return(pprint.pformat(return_dict))
+
+				else:
+					return{"Response_Status":str(response_ip_rep.status_code)}
+	
+		except Exception as e:
+			return {"VirusTotal Error":f"ERROR: {e}"}
 	
 	
 	@staticmethod
@@ -113,23 +126,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 		return list(set(input_list))
 	
 	def get_summary(self):
-		return {'ips_from_domains':self.ips_from_domains}
-
-'''
-def ipdata_location(ip):
-	key = '94e7d24a7610566ca951ae281d974d19d7be21764420af641f2f6d0a'
-	idp = ipdata.IPData(key)
-	locators = ['country_name', 'continent_name', 'latitude', 'longitude', 'company', 'threat','asn']
-	return_dict = {}
-	try:
-		response = ipd.lookup(ip)
-		for locator in locators:
-			return_dict[locator] = response[locator]
-	except Exception as e:
-		return {'ERROR': e}
-	finally:
-		return pprint.pformat(return_dict)
-'''
+		return {'ips_from_domains':self.ips_from_domains,'virustotal_ip':self.virustotal_ip}
 
 
 

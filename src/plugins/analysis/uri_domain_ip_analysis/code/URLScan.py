@@ -57,7 +57,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 			response = requests.post('https://urlscan.io/api/v1/scan/',headers=headers, data=json.dumps(data))
 			return pprint.pformat(response.json())
 		except:
-			return {"ERROR":"ERROR"}
+			return {"ERROR":data}
 
 	def get_domains_from_uri(self, uri):
 		sub_strs = uri.split("://")

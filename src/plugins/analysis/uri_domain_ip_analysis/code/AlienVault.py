@@ -74,7 +74,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 				else:
 					return{"Response_Status": str(response.status_code)}
 		except Exception as e:
-			return {"AlienVault Error":f"ERROR: {e}"}
+			return {"AlienVault Error":f"ERROR: {IP}"}
 
 		
 	def alienDomain(self, Domains):
@@ -97,7 +97,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 				else:
 					return{"Response_Status":str(response_domain.status_code)}
 		except Exception as e:
-			return {"AlienVault Error":f"ERROR: {e}"}
+			return {"AlienVault Error":f"ERROR: {Domains}"}
 	
 
 	def get_domains_from_uri(self, uri):

@@ -53,7 +53,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 			result = pprint.pformat(IPASN(Net(ip)).lookup())
 			return result
 		except Exception as e:
-			return {f'Error retrieving WHOSI information for {ip}':f'ERROR: {e}'}
+			return {f'Error retrieving WHOSI information for {ip}':f'ERROR: {ip}'}
 		
 	def get_domain_whois(self, domain):
 		try:
@@ -71,7 +71,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 				data_dict.pop('statuses')
 			return pprint.pformat(data_dict)
 		except Exception as e:
-			return {'Error encountered while retrieving WHIOS information for {domain}':f'ERROR: {e}'}
+			return {'Error encountered while retrieving WHIOS information for {domain}':f'ERROR: {domain}'}
 	
 	
 	

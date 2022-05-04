@@ -74,7 +74,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 			else:
 				return{"Response_Status":str(response.status_code)}	
 		except Exception as e:
-			return {"XForce Error":f"ERROR: {e}"}
+			return {"XForce Error":f"ERROR: {domain}"}
 
 	# IP Part Using X-Force
 	def xforceIp(self, ip):
@@ -95,7 +95,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 			else:
 				return{"Response_Status":str(response.status_code)}
 		except Exception as e:
-			return {"XForce Error":f"ERROR: {e}"}
+			return {"XForce Error":f"ERROR: {ip}"}
 
 			
 	def get_domains_from_uri(self, uri):

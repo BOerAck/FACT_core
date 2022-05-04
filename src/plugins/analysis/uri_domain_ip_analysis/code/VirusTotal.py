@@ -71,7 +71,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 					return{"Response_Status":str(response_ip_rep.status_code)}
 	
 		except Exception as e:
-			return {"VirusTotal Error":f"ERROR: {e}"}
+			return {"VirusTotal Error":f"ERROR: {IP}"}
 	
 	def get_domains_from_uri(self, uri):
 		sub_strs = uri.split("://")

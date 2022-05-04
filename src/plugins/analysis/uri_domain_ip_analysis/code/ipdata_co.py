@@ -58,7 +58,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 			response = self.ipd.lookup(ip)
 			return pprint.pformat(response)
 		except Exception as e:
-			return {'ERROR': e}
+			return {'ERROR': ip}
 		
 	def get_domains_from_uri(self, uri):
 		sub_strs = uri.split("://")

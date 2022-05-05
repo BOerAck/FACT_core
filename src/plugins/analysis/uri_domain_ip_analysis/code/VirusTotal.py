@@ -14,6 +14,7 @@ from common_analysis_ip_and_uri_finder import CommonAnalysisIPAndURIFinder
 class AnalysisPlugin(AnalysisBasePlugin):
 	NAME = 'Virustotal_Analysis'
 	DEPENDENCIES = ['ip_and_uri_finder']
+	MIME_WHITELIST = ['text/plain', 'application/octet-stream', 'application/x-executable', 'application/x-object','application/x-sharedlib', 'application/x-dosexec']
 	DESCRIPTION = (
 	'Returns the results of API query to VirusTotal for all extraced IPs. API key required.'
 	)
@@ -28,27 +29,33 @@ class AnalysisPlugin(AnalysisBasePlugin):
 
 	def process_object(self, file_object):
 		final_data = {} #dict of original artifact mapped to analysis
-		result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
-		for key in ['uris', 'ips_v4', 'ips_v6']:
-		    result[key] = self.remove_duplicates(result[key])
-		for key, data_list in result.items():
-			if key not in ['uris', 'ips_v4', 'ips_v6']:
+		#result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
+		result = file_object.processed_analysis['ip_and_uri_finder']['summary']
+		for data in result:
+			if type(data) != str:
 				continue
-			for data in data_list:
-				if key == 'uris':
-					data = self.get_domains_from_uri(data)
-					final_data[data] = {}
-					domains_to_ips = self.get_ips_from_domain(data)
-					for ip in domains_to_ips:
-						final_data[data][f'VirusTotal {data} to_ip: {ip}'] = self.virustotalIp([ip])
+			final_data[data] = {}
+			if not self.is_ip(data):
+				data = self.get_domains_from_uri(data)
+				final_data[data] = {}
+				domains_to_ips = self.get_ips_from_domain(data)
+				for ip in domains_to_ips:
+					final_data[data][f'VirusTotal {data} to_ip: {ip}'] = self.virustotalIp([ip])
 
-				elif key == 'ips_v4':
-					final_data[data] = {}
-					final_data[data]['VirusTotalIP'] = self.virustotalIp([data])
+			else:
+				final_data[data] = {}
+				final_data[data]['VirusTotalIP'] = self.virustotalIp([data])
 
 
 		file_object.processed_analysis[self.NAME] = final_data
 		return file_object
+	
+	def is_ip(self,data):
+		try:
+			ip_address(data)
+			return True
+		except:
+			return False
 
 			
 	# IP Part using VirusTotal
@@ -68,10 +75,10 @@ class AnalysisPlugin(AnalysisBasePlugin):
 					return(pprint.pformat(return_dict))
 
 				else:
-					return{"Response_Status":str(response_ip_rep.status_code)}
+					return "No data found, or asset is not a web host"
 	
 		except Exception as e:
-			return {"VirusTotal Error":f"ERROR: {IP}"}
+			return "No data found, or asset is not a web host"
 	
 	def get_domains_from_uri(self, uri):
 		sub_strs = uri.split("://")

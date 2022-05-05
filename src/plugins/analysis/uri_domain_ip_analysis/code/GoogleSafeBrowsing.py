@@ -28,34 +28,39 @@ class AnalysisPlugin(AnalysisBasePlugin):
 
 	def process_object(self, file_object):
 		final_data = {} #dict of original artifact mapped to analysis
-		result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
-		for key in ['uris', 'ips_v4', 'ips_v6']:
-		    result[key] = self.remove_duplicates(result[key])
+		#result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
+		result = file_object.processed_analysis['ip_and_uri_finder']['summary']
 
-		for key, data_list in result.items():
-			if key not in ['uris', 'ips_v4', 'ips_v6']:
+
+		for data in result:
+			if type(data) != str:
 				continue
-			for data in data_list:
+			final_data[data] = {}
+			if not self.is_ip(data):
+				final_data[data]['GoogleSafeBrowsingURI'] = self.GSB_check(data)
+			
+				data = self.get_domains_from_uri(data)
 				final_data[data] = {}
-				if key == 'uris':
-					final_data[data]['GoogleSafeBrowsingURI'] = self.GSB_check(data)
-				
-					data = self.get_domains_from_uri(data)
-					final_data[data] = {}
-					final_data[data]['GoogleSafeBrowsingDomain'] = self.GSB_check(data)
-					domains_to_ips = self.get_ips_from_domain(data)
-					for ip in domains_to_ips:
-						final_data[data][f'GoogleSafeBrowsing extraced_data {data} to_ip: {ip}'] = self.GSB_check(ip)
+				final_data[data]['GoogleSafeBrowsingDomain'] = self.GSB_check(data)
+				domains_to_ips = self.get_ips_from_domain(data)
+				for ip in domains_to_ips:
+					final_data[data][f'GoogleSafeBrowsing extraced_data {data} to_ip: {ip}'] = self.GSB_check(ip)
 
-				elif key == 'ips_v4':
-					final_data[data]['GoogleSafeBrowsingIP'] = self.GSB_check(data)
-					ips_to_domains = self.get_domains_from_ip(data)
-					for domain in ips_to_domains:
-						final_data[data][f'GoogleSafeBrowsing {data} to_domain: {domain}'] = self.GSB_check(domain)
+			else:
+				final_data[data]['GoogleSafeBrowsingIP'] = self.GSB_check(data)
+				ips_to_domains = self.get_domains_from_ip(data)
+				for domain in ips_to_domains:
+					final_data[data][f'GoogleSafeBrowsing {data} to_domain: {domain}'] = self.GSB_check(domain)
 
 		file_object.processed_analysis[self.NAME] = final_data
 		return file_object
 	
+	def is_ip(self,data):
+		try:
+			ip_address(data)
+			return True
+		except:
+			return False
 		
 		
 	def GSB_check(self, value):
@@ -64,7 +69,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 			response = self.gsb.lookup_urls([value])
 			return pprint.pformat(response)
 		except Exception as e:
-			return {'ERROR': 'ERROR'}
+			return "No data found, or asset is not a web host"
 			
 	def get_domains_from_uri(self, uri):
 		sub_strs = uri.split("://")
@@ -97,8 +102,6 @@ class AnalysisPlugin(AnalysisBasePlugin):
 	
 	def remove_duplicates(self, input_list):
 		return list(set(input_list))
-
-
 
 
 

@@ -14,6 +14,7 @@ from common_analysis_ip_and_uri_finder import CommonAnalysisIPAndURIFinder
 class AnalysisPlugin(AnalysisBasePlugin):
 	NAME = 'URLScan_Analysis'
 	DEPENDENCIES = ['ip_and_uri_finder']
+	MIME_WHITELIST = ['text/plain', 'application/octet-stream', 'application/x-executable', 'application/x-object','application/x-sharedlib', 'application/x-dosexec']
 	DESCRIPTION = (
 	'Submits scan URL/IP requests to URLScan.io, returns URL which will contain scan results. API key required.'
 	)
@@ -26,28 +27,34 @@ class AnalysisPlugin(AnalysisBasePlugin):
 
 	def process_object(self, file_object):
 		final_data = {} #dict of original artifact mapped to analysis
-		result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
-		for key in ['uris', 'ips_v4', 'ips_v6']:
-		    result[key] = self.remove_duplicates(result[key])
-		for key, data_list in result.items():
-			if key not in ['uris', 'ips_v4', 'ips_v6']:
+		#result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
+		result = file_object.processed_analysis['ip_and_uri_finder']['summary']
+		for data in result:
+			if type(data) != str:
 				continue
-			for data in data_list:
-				if key == 'uris':
-					final_data[data] = {}
-					final_data[data]['URLScanURL'] = self.submit_urlscan(data)
-					domains_to_ips = self.get_ips_from_domain(data)
-					for ip in domains_to_ips:
-						final_data[data][f'URLScan {data} to_ip: {ip}'] = self.submit_urlscan(ip)
+			final_data[data] = {}
+			if not self.is_ip(data):
+				final_data[data] = {}
+				final_data[data]['URLScanURL'] = self.submit_urlscan(data)
+				domains_to_ips = self.get_ips_from_domain(data)
+				for ip in domains_to_ips:
+					final_data[data][f'URLScan {data} to_ip: {ip}'] = self.submit_urlscan(ip)
 
-				elif key == 'ips_v4':
-					final_data[data] = {}
-					final_data[data]['URLScanIP'] = self.submit_urlscan(data)
-					ips_to_domains = self.get_domains_from_ip(data)
-					for domain in ips_to_domains:
-						final_data[data][f'URLScan {data} to_domain: {domain}'] = self.submit_urlscan(domain)
+			else:
+				final_data[data] = {}
+				final_data[data]['URLScanIP'] = self.submit_urlscan(data)
+				ips_to_domains = self.get_domains_from_ip(data)
+				for domain in ips_to_domains:
+					final_data[data][f'URLScan {data} to_domain: {domain}'] = self.submit_urlscan(domain)
 		file_object.processed_analysis[self.NAME] = final_data
 		return file_object
+	
+	def is_ip(self,data):
+		try:
+			ip_address(data)
+			return True
+		except:
+			return False
 		
 			
 	def submit_urlscan(self,data):
@@ -57,7 +64,7 @@ class AnalysisPlugin(AnalysisBasePlugin):
 			response = requests.post('https://urlscan.io/api/v1/scan/',headers=headers, data=json.dumps(data))
 			return pprint.pformat(response.json())
 		except:
-			return {"ERROR":data}
+			return "No data found, or asset is not a web host"
 
 	def get_domains_from_uri(self, uri):
 		sub_strs = uri.split("://")

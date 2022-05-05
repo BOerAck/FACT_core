@@ -17,6 +17,7 @@ from common_analysis_ip_and_uri_finder import CommonAnalysisIPAndURIFinder
 class AnalysisPlugin(AnalysisBasePlugin):
 	NAME = 'URLHaus_Analysis'
 	DEPENDENCIES = ['ip_and_uri_finder']
+	MIME_WHITELIST = ['text/plain', 'application/octet-stream', 'application/x-executable', 'application/x-object','application/x-sharedlib', 'application/x-dosexec']
 	DESCRIPTION = (
 	'Downloads and Unzips latest URLHause CSV file. Checks for string matches between all domains/IPs/URIs within all URLHaus URLs. Expect 10-20 seconds per lookup. No API key required'
 	)
@@ -28,33 +29,38 @@ class AnalysisPlugin(AnalysisBasePlugin):
 
 	def process_object(self, file_object):
 		final_data = {} #dict of original artifact mapped to analysis
-		result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
-		for key in ['uris', 'ips_v4', 'ips_v6']:
-		    result[key] = self.remove_duplicates(result[key])
+		#result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
+		result = file_object.processed_analysis['ip_and_uri_finder']['summary']
 		self.init_urlhaus()
-		for key, data_list in result.items():
-			if key not in ['uris', 'ips_v4', 'ips_v6']:
+		for data in result:
+			if type(data) != str:
 				continue
-			for data in data_list:
+			final_data[data] = {}
+			if not self.is_ip(data):
+				final_data[data]['URLHausURI'] = self.URLHaus_check(data)
+			
+				data = self.get_domains_from_uri(data)
 				final_data[data] = {}
-				if key == 'uris':
-					final_data[data]['URLHausURI'] = self.URLHaus_check(data)
-				
-					data = self.get_domains_from_uri(data)
-					final_data[data] = {}
-					final_data[data]['URLHausDomain'] = self.URLHaus_check(data)
-					domains_to_ips = self.get_ips_from_domain(data)
-					for ip in domains_to_ips:
-						final_data[data][f'URLHaus {data} to_ip: {ip}'] = self.URLHaus_check(ip)
+				final_data[data]['URLHausDomain'] = self.URLHaus_check(data)
+				domains_to_ips = self.get_ips_from_domain(data)
+				for ip in domains_to_ips:
+					final_data[data][f'URLHaus {data} to_ip: {ip}'] = self.URLHaus_check(ip)
 
-				elif key == 'ips_v4':
-					final_data[data]['URLHausIP'] = self.URLHaus_check(data)
-					ips_to_domains = self.get_domains_from_ip(data)
-					for domain in ips_to_domains:
-						final_data[data][f'URLHaus {data} to_domain: {domain}'] = self.URLHaus_check(domain)
+			else:
+				final_data[data]['URLHausIP'] = self.URLHaus_check(data)
+				ips_to_domains = self.get_domains_from_ip(data)
+				for domain in ips_to_domains:
+					final_data[data][f'URLHaus {data} to_domain: {domain}'] = self.URLHaus_check(domain)
 
 		file_object.processed_analysis[self.NAME] = final_data
 		return file_object
+	
+	def is_ip(self,data):
+		try:
+			ip_address(data)
+			return True
+		except:
+			return False
 		
 	def init_urlhaus(self):
 		url = "https://urlhaus.abuse.ch/downloads/csv/"
@@ -70,12 +76,16 @@ class AnalysisPlugin(AnalysisBasePlugin):
 		
 		
 	def URLHaus_check(self, value):
+		count = 0
 		return_dict = {'count':0,'last_match':{}}
 		for index, row in self.urlhaus_csv.iterrows():
 			url = row['url']
 			if value in url:
+				count += 1
 				return_dict['count'] += 1
 				return_dict['last_match'] = self.urlhaus_csv.loc[index].to_dict()
+		if count == 0:
+			return"No data found, or asset is not a web host"
 		return return_dict
 		
 	def get_domains_from_uri(self, uri):

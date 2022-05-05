@@ -15,6 +15,7 @@ from common_analysis_ip_and_uri_finder import CommonAnalysisIPAndURIFinder
 class AnalysisPlugin(AnalysisBasePlugin):
 	NAME = 'XForce_Analysis'
 	DEPENDENCIES = ['ip_and_uri_finder']
+	MIME_WHITELIST = ['text/plain', 'application/octet-stream', 'application/x-executable', 'application/x-object','application/x-sharedlib', 'application/x-dosexec']
 	DESCRIPTION = (
 	'Returns the results of API query to XForce for all extracted Domains and IPs. API key required.'
 	)
@@ -29,33 +30,38 @@ class AnalysisPlugin(AnalysisBasePlugin):
 
 	def process_object(self, file_object):
 		final_data = {} #dict of original artifact mapped to analysis
-		result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
-		for key in ['uris', 'ips_v4', 'ips_v6']:
-		    result[key] = self.remove_duplicates(result[key])
-		for key, data_list in result.items():
-			if key not in ['uris', 'ips_v4', 'ips_v6']:
+		#result = self.ip_and_uri_finder.analyze_file(file_object.file_path, separate_ipv6=True)
+		result = file_object.processed_analysis['ip_and_uri_finder']['summary']
+		for data in result:
+			if type(data) != str:
 				continue
-			for data in data_list:
+			final_data[data] = {}
+			if not self.is_ip(data):
+				final_data[data]['XForceURI'] = self.xforceDomain(data)
+				
+				data = self.get_domains_from_uri(data)
 				final_data[data] = {}
-				if key == 'uris':
-					final_data[data]['XForceURI'] = self.xforceDomain(data)
-					
-					data = self.get_domains_from_uri(data)
-					final_data[data] = {}
-					final_data[data]['XForceDomain'] = self.xforceDomain(data)
-					domains_to_ips = self.get_ips_from_domain(data)
-					for ip in domains_to_ips:
-						final_data[data][f'XForce {data} to_ip: {ip}'] = self.xforceIp(ip)
+				final_data[data]['XForceDomain'] = self.xforceDomain(data)
+				domains_to_ips = self.get_ips_from_domain(data)
+				for ip in domains_to_ips:
+					final_data[data][f'XForce {data} to_ip: {ip}'] = self.xforceIp(ip)
 
-				elif key == 'ips_v4':
+			else:
 
-					final_data[data]['XForceIP'] = self.xforceIp(data)
-					ips_to_domains = self.get_domains_from_ip(data)
-					for domain in ips_to_domains:
-						final_data[data][f'Xforce {data} to_domain: {domain}'] = self.xforceDomain(domain)
+				final_data[data]['XForceIP'] = self.xforceIp(data)
+				ips_to_domains = self.get_domains_from_ip(data)
+				for domain in ips_to_domains:
+					final_data[data][f'Xforce {data} to_domain: {domain}'] = self.xforceDomain(domain)
 
 		file_object.processed_analysis[self.NAME] = final_data
 		return file_object
+	
+	def is_ip(self,data):
+		try:
+			ip_address(data)
+			return True
+		except:
+			return False
 
 
 	# Domain/URL Part using X-Force 
@@ -72,9 +78,9 @@ class AnalysisPlugin(AnalysisBasePlugin):
 
 				return(pprint.pformat(return_dict))
 			else:
-				return{"Response_Status":str(response.status_code)}	
+				return "No data found, or asset is not a web host"
 		except Exception as e:
-			return {"XForce Error":f"ERROR: {domain}"}
+			return "No data found, or asset is not a web host"
 
 	# IP Part Using X-Force
 	def xforceIp(self, ip):
@@ -93,9 +99,9 @@ class AnalysisPlugin(AnalysisBasePlugin):
 				return(pprint.pformat(return_dict))
 
 			else:
-				return{"Response_Status":str(response.status_code)}
+				return "No data found, or asset is not a web host"
 		except Exception as e:
-			return {"XForce Error":f"ERROR: {ip}"}
+			return "No data found, or asset is not a web host"
 
 			
 	def get_domains_from_uri(self, uri):

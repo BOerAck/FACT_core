@@ -5,4 +5,4 @@
 * Malum.apk                                           -   Trojan APK discovered online
 * demo.bin                                            -   Wyze Webcam firmware - Non-Malicious firmware
 * WAP4410N_V2.0.5.3.img                               -   Cisco Accesspoint firmware - Non-Malicious firmware
-* 
+* HD3.11-firmware.bin                                 -   GoPro Digital Camera - Non-Malicious firmware
